@@ -27,6 +27,10 @@ public class PromoSearch {
 		public PromotionCombo(String[] promotionCodes) {
 			this.promotionCodes = promotionCodes;
 		}
+		@Override
+		public String toString() {
+			return Arrays.toString(promotionCodes);
+		}
 	}
 	
 	public PromotionCombo[] allCombinablePromotions(Promotion[] allPromos) {
@@ -70,6 +74,9 @@ public class PromoSearch {
 			s.new Promotion("P5", new String[]{"P2"}) // P5 is not combinable with P2
 		};
 		
-		s.allCombinablePromotions(promoArr);
+		PromotionCombo[] res = s.allCombinablePromotions(promoArr);
+		for (PromotionCombo p : res) {
+			System.out.println(p.toString());
+		}
 	}
 }
