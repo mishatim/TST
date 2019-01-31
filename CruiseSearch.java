@@ -1,9 +1,12 @@
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class CruiseSearch {
 
@@ -12,6 +15,18 @@ public class CruiseSearch {
 		String rateGroup;
 		public Rate(String rateCode, String rateGroup) {
 			this.rateCode = rateCode;
+			this.rateGroup = rateGroup;
+		}
+		public String getRateCode() {
+			return rateCode;
+		}
+		public void setRateCode(String rateCode) {
+			this.rateCode = rateCode;
+		}
+		public String getRateGroup() {
+			return rateGroup;
+		}
+		public void setRateGroup(String rateGroup) {
 			this.rateGroup = rateGroup;
 		}
 	}
@@ -24,8 +39,26 @@ public class CruiseSearch {
 			this.rateCode = rateCd;
 			this.price = prc;
 		}
+		public String getCabinCode() {
+			return cabinCode;
+		}
+		public void setCabinCode(String cabinCode) {
+			this.cabinCode = cabinCode;
+		}
+		public String getRateCode() {
+			return rateCode;
+		}
+		public void setRateCode(String rateCode) {
+			this.rateCode = rateCode;
+		}
+		public BigDecimal getPrice() {
+			return price;
+		}
+		public void setPrice(BigDecimal price) {
+			this.price = price;
+		}
 	}
-	class BestGroupPrice {
+	class BestGroupPrice implements Comparable<BestGroupPrice> {
 		String cabinCode;
 		String rateCode;
 		BigDecimal price;
@@ -39,54 +72,74 @@ public class CruiseSearch {
 		public String toString() {
 			return (String.format("BestGroupPrice %s %s %f %s", cabinCode, rateCode, price, rateGroup));   
 		}
+		public String getCabinCode() {
+			return cabinCode;
+		}
+		public void setCabinCode(String cabinCode) {
+			this.cabinCode = cabinCode;
+		}
+		public String getRateCode() {
+			return rateCode;
+		}
+		public void setRateCode(String rateCode) {
+			this.rateCode = rateCode;
+		}
+		public BigDecimal getPrice() {
+			return price;
+		}
+		public void setPrice(BigDecimal price) {
+			this.price = price;
+		}
+		public String getRateGroup() {
+			return rateGroup;
+		}
+		public void setRateGroup(String rateGroup) {
+			this.rateGroup = rateGroup;
+		}
+		@Override
+		public int compareTo(BestGroupPrice bgp) {
+			return price.compareTo(bgp.price);
+		}
 	}
 	
-	public BestGroupPrice[] getBestGroupPrices(Rate[] rates, CabinPrice[] prices) {
-		HashMap<String, String> rateMap = new HashMap<String, String>();
-		for (Rate r : rates) {
-			rateMap.put(r.rateCode, r.rateGroup);
-		}
-		
+	
+	public BestGroupPrice[] getBestGroupPricesJ8(Rate[] rates, CabinPrice[] prices) {
+		Map<String, String> rateMap = Arrays.stream(rates)
+				.collect(Collectors.toMap(Rate::getRateCode, Rate::getRateGroup));
+	
 		// enrich the price with rateGroup to facilitate sorting and filtering
-		List<BestGroupPrice> allGrpPrices = new ArrayList<CruiseSearch.BestGroupPrice>();
-		for (CabinPrice cp : prices) {
-			allGrpPrices.add(new BestGroupPrice(cp.cabinCode, cp.rateCode, cp.price, rateMap.get(cp.rateCode)));
-		}
+		List<BestGroupPrice> allGrpPrices = Arrays.stream(prices)
+				.map(cp->new BestGroupPrice(cp.cabinCode, cp.rateCode, cp.price, rateMap.get(cp.rateCode)))
+				.collect(Collectors.toList());
 		
 		// create a set of unique rateGroups 
-		Set<String> rateGrpSet = new HashSet<String>();
-		for (Rate r : rates) {
-			rateGrpSet.add(r.rateGroup);
-		}
+		Set<String> rateGrpSet = Arrays.stream(rates)
+				.map(Rate::getRateGroup)
+				.collect(Collectors.toSet());
 		
 		// set of unique cabin types
-		Set<String> cabinCodeSet = new HashSet<String>();
-		for (CabinPrice cp : prices) {
-			cabinCodeSet.add(cp.cabinCode);
-		}
+		Set<String> cabinCodeSet = Arrays.stream(prices)
+				.map(CabinPrice::getCabinCode)
+				.collect(Collectors.toSet());
 		
-		
+		// I am sure this operation below could be reduced to more elegant functional solution
 		List<BestGroupPrice> bestGrpPrices = new ArrayList<CruiseSearch.BestGroupPrice>();
 		// filter out only one cabin code, and then find best group rate in there for each group
-		for (String cabCd : cabinCodeSet) {
-			for(String rtGrp : rateGrpSet) {
-				BestGroupPrice bestPrice = null;
-				for (BestGroupPrice gp : allGrpPrices) {
-					if (gp.cabinCode.equals(cabCd) && gp.rateGroup.equals(rtGrp)) {
-						// check best price
-						if (bestPrice==null || gp.price.compareTo(bestPrice.price) < 0) {
-							bestPrice = gp;
-						}
-					}
-				}
+		cabinCodeSet.forEach(cabCode-> {
+			rateGrpSet.forEach(rtGrp->{
+				BestGroupPrice bestPrice = allGrpPrices.stream()
+						.filter(gp->(gp.getCabinCode().equals(cabCode) && gp.getRateGroup().equals(rtGrp)))
+						.sorted()      // this does the sorting in descending order based on BaseGrpPrice:Comparable impl
+						.findFirst()
+						.orElse(null); // Optional result is evaluated to null if none present
 				bestGrpPrices.add(bestPrice);
-			}
-		}
-		
+			});
+		});
 		
 		return bestGrpPrices.toArray(new BestGroupPrice[] {});
 	}
 	
+
 	public static void main(String[] args) {
 		CruiseSearch s = new CruiseSearch();
 		
@@ -107,7 +160,7 @@ public class CruiseSearch {
 				s.new CabinPrice("CB", "S2", new BigDecimal("270.00"))
 		};
 		
-		BestGroupPrice[] bests = s.getBestGroupPrices(rates, prices);
+		BestGroupPrice[] bests = s.getBestGroupPricesJ8(rates, prices);
 		for (BestGroupPrice p : bests) {
 			System.out.println(p.toString());
 		}
